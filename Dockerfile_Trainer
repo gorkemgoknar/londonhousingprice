@@ -1,0 +1,6 @@
+FROM tensorflow/tensorflow:latest-gpu-jupyter
+WORKDIR /tf
+# copy sources
+COPY ./ /tf/
+# Install the requirements.txt
+RUN pip install -r requirements.txt
