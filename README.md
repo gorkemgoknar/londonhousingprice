@@ -1,5 +1,7 @@
 London House Price prediction Demo project
 
+Note: this project is intended for pipeline generation for training and inference 
+
 ![Alt text](eda_images/london_eda3.png?raw=true "London House Prices")
 
 ##Building Docker images
@@ -7,7 +9,8 @@ London House Price prediction Demo project
 * Rename  Dockerfile_Trainer to Dockerfile
 * Run in interactive environment
 * docker run -it -v /yourworkdir:/tf/workdir -w /tf/workdir -p 8888:8888  IMAGEID bash
-### To build default DN model just run
+*
+### To build default DNN model just run
 python train.py  
 If you need to fetch new data from GCP you need to provide credential file
 python train.py --credential_file credential_file.json 
