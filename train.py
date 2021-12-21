@@ -7,18 +7,16 @@ import argparse
 import logging
 logger = logging.getLogger(__name__)
 
-
+import pickle
 from sklearn.base import BaseEstimator, RegressorMixin, TransformerMixin
 from sklearn.metrics import mean_absolute_error
 from joblib import Memory
 #from sklearn.preprocessing import Imputer
-from sklearn.preprocessing import LabelEncoder
-from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.pipeline import make_pipeline
 
-from sklearn.preprocessing import StandardScaler, RobustScaler, QuantileTransformer
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import StandardScaler,Normalizer , OneHotEncoder
+from sklearn.preprocessing import RobustScaler, QuantileTransformer, LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
 
@@ -31,7 +29,7 @@ from tensorflow.keras.optimizers import Adam
 import tensorflow as tf
 
 
-from model_loader import make_sklearn_pipeline
+from model.model_loader import make_sklearn_pipeline
 
 def clean_dataset(df, target_column):
     count_of_prev_rows = df.shape[0]
@@ -110,9 +108,30 @@ def train_model(args):
         , remainder="passthrough")
     x_train = encoder.fit_transform(x_train)
     x_train = np.asarray(x_train).astype(np.float32)
-    import pickle
+
+    norm = Normalizer()
+    x_train = norm.fit_transform(x_train)
+    scaler = StandardScaler()
+    x_train = scaler.fit_transform(x_train)
+
+
+
+    print("TEST")
+    x_test = pipe.fit_transform(X_test)  # y_Test
+
+    x_test = encoder.transform(x_test)
+    x_test = np.asarray(x_test).astype(np.float32)
+    x_test = norm.transform(x_test)
+    x_test = scaler.transform(x_test)
+
+
+    #save normalizer,scaler,encoder for inference user
     with open('model/encoder.pickle', 'wb') as f:
         pickle.dump(encoder, f)
+    with open('model/normalizer.pickle', 'wb') as f:
+        pickle.dump(norm, f)
+    with open('model/scaler.pickle', 'wb') as f:
+        pickle.dump(scaler, f)
 
     print("TEST")
     x_test = pipe.fit_transform(X_test)  # y_Test
@@ -121,9 +140,26 @@ def train_model(args):
 
     x_test = np.asarray(x_test).astype(np.float32)
 
-    ##get model
+    ##Initialize  neurons and hidden layers
+    layer_size= args.num_layers
+    num_initial_neurons = args.num_neurons
+    if num_initial_neurons<64:
+        num_initial_neurons = 64
 
-    model = create_model(layers=[300,300,75])
+    layers = []
+    if layer_size>3:
+        for i in range(layer_size):
+            num_neurons = num_initial_neurons/(i+1)
+            if num_neurons<16:
+                continue
+            layers.append(num_neurons)
+    else:
+        layers = [num_initial_neurons,num_initial_neurons/2,num_initial_neurons/4]
+        print(layers)
+
+
+    logging.info(f"Layers for model: {str(layers)}")
+    model = create_model(layers=layers)
 
     learning_rate = 0.005
     batch_size = args.batch_size
@@ -134,15 +170,15 @@ def train_model(args):
     # cosine_loss = tf.keras.losses.CosineSimilarity(axis=1)
     # msle = tf.keras.losses.MeanSquaredLogarithmicError()
     # huber loss, sensistive to outlier
-    huber_loss = tf.keras.losses.Huber()
-
+    #huber_loss = tf.keras.losses.Huber()
+    mae = tf.keras.losses.MeanAbsoluteError()
     optimizer = tf.keras.optimizers.Adam(learning_rate)
 
-    model.compile(optimizer, loss=huber_loss)
+    model.compile(optimizer, loss=mae)
 
     from tqdm.keras import TqdmCallback
 
-    early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=4)
+    early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3)
 
     history = model.fit(
         x_train,
@@ -152,9 +188,6 @@ def train_model(args):
         verbose=0, epochs=epochs, callbacks=[early_stop, TqdmCallback(verbose=0)])
 
     logging.info(f"Final validation loss: { str(history.history['val_loss']) } ")
-
-    #test predict
-
 
     #save model
     from pathlib import Path
@@ -186,8 +219,9 @@ def parse_opt():
     parser.add_argument('--datapath', type=str, default="data_parquet", help='location for parquet folder')
     parser.add_argument('--batch_size', type=int, default=256, help='Batchsize for training')
     parser.add_argument('--num_layers', type=int, default=3, help='Number of layers in model')
+    parser.add_argument('--num_neurons', type=int, default=128, help='Initial neuron size for first layer')
     parser.add_argument('--model_type', type=str, default="dense", help='Model type, dense or transformer')
-    parser.add_argument('--epochs', type=int, default=5, help='Training epochs')
+    parser.add_argument('--epochs', type=int, default=50, help='Training epochs')
     parser.add_argument('--credential_file', type=str, default="config/gcp_credentials.json", help='GCP Credential json file')
     parser.add_argument('--gcp_project', type=str, default="mystical-accord-330011", help='GCP Project Name')
     parser.add_argument('--reload_data', type=int, default=0, help='If set will delete data folder and reload data from GCP')

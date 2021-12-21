@@ -12,6 +12,8 @@ class InferenceModel(object):
         self.model = model_loader()
         self.pipe = make_sklearn_pipeline()
         self.encoder = encoder_loader()
+        self.normalizer = normalizer_loader()
+        self.scaler = scaler_loader()
         self.graph = tf.Graph()
 
     def parse_input(self,input):
@@ -24,6 +26,8 @@ class InferenceModel(object):
 
         x_test = self.pipe.fit_transform(input)
         x_test = self.encoder.transform(x_test)
+        x_test = self.normalizer.transform(x_test)
+        x_test = self.scaler.transform(x_test)
         x_test = np.asarray(x_test).astype(np.float32)
         return self.model.predict(x_test)
 
@@ -33,6 +37,16 @@ def model_loader():
     print(model.summary)
 
     return model
+
+def scaler_loader():
+    with open('model/normalizer.pickle', 'rb') as f:
+        scaler = pickle.load(f)
+        return scaler
+
+def normalizer_loader():
+    with open('model/normalizer.pickle', 'rb') as f:
+        normalizer = pickle.load(f)
+        return normalizer
 
 def encoder_loader():
     with open('model/encoder.pickle', 'rb') as f:
