@@ -30,4 +30,4 @@ Api docs and sample can be found in localhost:8080/apidocs
 ![Alt text](eda_images/london_eda2.png?raw=true "Area effect on price")
 
 #### Current Model performance
-![Alt text](eda_images/london_eda2.png?raw=true "Area effect on price")
+![Alt text](eda_images/london_eda4.png?raw=true "Area effect on price")
